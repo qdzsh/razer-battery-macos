@@ -1,0 +1,5 @@
+obj
+*.so
+sample_cli
+.idea
+.DS_Store
