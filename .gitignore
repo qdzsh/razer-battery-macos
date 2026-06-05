@@ -15,5 +15,9 @@ xcuserdata/
 .swiftpm/
 .build/
 
+# Release artifacts
+*.dmg
+/dmg/
+
 # Misc
 ./out

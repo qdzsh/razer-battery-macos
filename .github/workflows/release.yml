@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (Release)
+        run: |
+          xcodebuild \
+            -project razer-battery-menu-bar.xcodeproj \
+            -scheme razer-battery-menu-bar \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package .dmg
+        run: |
+          set -euo pipefail
+          APP="build/Build/Products/Release/razer-battery-menu-bar.app"
+          codesign --force --deep --sign - "$APP"
+          VERSION="${GITHUB_REF_NAME:-dev}"
+          DMG="razer-battery-macos-${VERSION}.dmg"
+          rm -rf dmg && mkdir dmg
+          cp -R "$APP" dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "Razer Battery" -srcfolder dmg -ov -format UDZO "$DMG"
+          echo "DMG=$DMG" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            "${DMG}"
+
+      - name: Upload build artifact (non-tag runs)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: razer-battery-macos-dmg
+          path: ${{ env.DMG }}
